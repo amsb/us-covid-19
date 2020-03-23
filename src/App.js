@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import Papa from "papaparse";
-import { regressionExp } from "d3-regression";
+import React, { useState, useEffect } from "react"
+import Papa from "papaparse"
+import { regressionExp } from "d3-regression"
 import {
   ComposedChart,
   Scatter,
@@ -10,104 +10,118 @@ import {
   CartesianGrid,
   Legend,
   Tooltip
-} from "recharts";
+} from "recharts"
 
-import stateNames from "./stateNames.json";
-import "./styles.css";
+import stateNames from "./stateNames.json"
+import "./styles.css"
 
-const states = {};
-stateNames.forEach(name => (states[name] = true));
+const states = {}
+stateNames.forEach(name => (states[name] = true))
 
 export default function App() {
-  const [state, setState] = useState(null);
+  const [state, setState] = useState(null)
 
   useEffect(() => {
     async function fetchData() {
       const response = await fetch(
         "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"
-      );
-      const csv = await response.text();
-      const rawData = Papa.parse(csv).data;
+      )
+      const csv = await response.text()
+      const rawData = Papa.parse(csv).data
 
-      let data = null;
+      const data = {}
       rawData.forEach(row => {
         if (row[1] === "US" && states[row[0]] != null) {
-          const stateData = row.slice(4).map(s => parseInt(s, 10));
-          if (data === null) {
-            data = stateData.map((c, t) => ({
+          data[row[0]] = row
+            .slice(4)
+            .map(s => parseInt(s, 10))
+            .map((c, t) => ({
               t,
               c: c,
               date: new Date(rawData[0].slice(4)[t])
-            }));
-          } else {
-            stateData.forEach((c, t) => {
-              data[t].c += c;
-            });
-          }
+            }))
         }
-      });
+      })
 
-      const baseDate = data[0].date;
+      let totalData = null
+      for (const stateName in data) {
+        if (totalData === null) {
+          totalData = data[stateName].map(point => ({ ...point }))
+        } else {
+          // eslint-disable-next-line
+          data[stateName].forEach(({ c }, t) => {
+            totalData[t].c += c
+          })
+        }
+      }
+      data["TOTAL"] = totalData
 
-      let offset = null;
-      data.forEach((point, t) => {
+      let selectedData = data["TOTAL"]
+      const baseDate = selectedData[0].date
+
+      let offset = null
+      selectedData.forEach((point, t) => {
         if (offset === null && point.c > 0) {
-          offset = t;
+          offset = t
         }
-      });
-      data = data.slice(offset);
+      })
+      selectedData = selectedData.slice(offset)
 
       const regression = regressionExp()
         .x(d => d.t)
-        .y(d => d.c)(data);
+        .y(d => d.c)(selectedData)
 
-      const c0 = regression.a;
-      const doublingTime = Math.log(2) / regression.b;
+      const c0 = regression.a
+      const doublingTime = Math.log(2) / regression.b
       const daysUntil = n =>
         Math.ceil(
           (doublingTime * Math.log(n / c0)) / Math.log(2) -
-            data[data.length - 1].t
-        );
+            selectedData[selectedData.length - 1].t
+        )
+      const rSquared = regression.rSquared
 
-      data.forEach(({ t }, index) => {
-        data[index].cFit = c0 * Math.pow(2, t / doublingTime);
-      });
+      selectedData.forEach(({ t }, index) => {
+        selectedData[index].cFit = c0 * Math.pow(2, t / doublingTime)
+      })
 
       setState({
+        data,
+        selectedData,
         baseDate,
-        data: data,
-        rSquared: regression.rSquared,
+        rSquared,
         daysUntil,
         doublingTime,
         c0
-      });
+      })
     }
     if (state == null) {
-      fetchData();
+      fetchData()
     }
-  }, [state]);
+  }, [state])
 
   if (state) {
-    const asOfDate = new Date(state.data[state.data.length - 1].date);
+    const asOfDate = new Date(
+      state.selectedData[state.selectedData.length - 1].date
+    )
 
-    const daysUntil100 = state.daysUntil(331e6);
-    let dateOf100 = new Date(Number(asOfDate));
-    dateOf100.setDate(asOfDate.getDate() + daysUntil100);
+    const daysUntil100 = state.daysUntil(331e6)
+    let dateOf100 = new Date(Number(asOfDate))
+    dateOf100.setDate(asOfDate.getDate() + daysUntil100)
 
-    const daysUntil1 = state.daysUntil(331e6 / 100);
-    let dateOf1 = new Date(Number(asOfDate));
-    dateOf1.setDate(asOfDate.getDate() + daysUntil1);
+    const daysUntil1 = state.daysUntil(331e6 / 100)
+    let dateOf1 = new Date(Number(asOfDate))
+    dateOf1.setDate(asOfDate.getDate() + daysUntil1)
 
-    const daysUntilNoBeds = state.daysUntil(924107 / 0.12);
-    let dateOfNoBeds = new Date(Number(asOfDate));
-    dateOfNoBeds.setDate(asOfDate.getDate() + daysUntilNoBeds);
+    const daysUntilNoBeds = state.daysUntil(924107 / 0.12)
+    let dateOfNoBeds = new Date(Number(asOfDate))
+    dateOfNoBeds.setDate(asOfDate.getDate() + daysUntilNoBeds)
 
-    let status = "No.";
-    if (state.rSquared < 0.8) {
-      status = "Yes!?";
-    } else if (state.rSquared < 0.9) {
-      status = "Maybe!?";
-    }
+    // let status = "No."
+    // if (state.rSquared < 0.8) {
+    //   status = "Yes!?"
+    // } else if (state.rSquared < 0.9) {
+    //   status = "Maybe!?"
+    // }
 
     return (
       <div
@@ -128,12 +142,13 @@ export default function App() {
           <h2>Have We Flattened the COVID-19 Curve in the United States?</h2>
           {/* <h2 style={{ color: "red" }}>{status}</h2> */}
           <p>As of {asOfDate.toDateString()}</p>
-          <ComposedChart data={state.data} width={400} height={400}>
+          <ComposedChart data={state.selectedData} width={400} height={400}>
             <CartesianGrid />
             <XAxis
               type="number"
               dataKey="t"
               name={`Days Since ${state.baseDate.toDateString()}`}
+              domain={["dataMin", "dataMax"]}
               unit=""
             />
             <YAxis
@@ -258,8 +273,8 @@ export default function App() {
           </div>
         ))} */}
       </div>
-    );
+    )
   } else {
-    return <div>Loading...</div>;
+    return <div>Loading...</div>
   }
 }
