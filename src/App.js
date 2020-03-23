@@ -94,6 +94,10 @@ export default function App() {
     let dateOf100 = new Date(Number(asOfDate));
     dateOf100.setDate(asOfDate.getDate() + daysUntil100);
 
+    const daysUntil1 = state.daysUntil(331e6 / 100);
+    let dateOf1 = new Date(Number(asOfDate));
+    dateOf1.setDate(asOfDate.getDate() + daysUntil1);
+
     const daysUntilNoBeds = state.daysUntil(924107 / 0.12);
     let dateOfNoBeds = new Date(Number(asOfDate));
     dateOfNoBeds.setDate(asOfDate.getDate() + daysUntilNoBeds);
@@ -164,6 +168,12 @@ export default function App() {
           <strong>{state.doublingTime.toFixed(2)} days</strong>.
         </p>
         <p>
+          The United States will reach 1% infection on{" "}
+          <strong>{dateOf1.toDateString()}</strong> if unabated exponential
+          growth continues. The upper limit on what China believes were
+          infected.
+        </p>
+        <p>
           Unabated, we will run out of hospital beds on{" "}
           <strong>{dateOfNoBeds.toDateString()}</strong> assuming a 12%
           hospitalization rate.
@@ -194,6 +204,12 @@ export default function App() {
               COVID-19 median incubation period:{" "}
               <a href="https://www.sciencedaily.com/releases/2020/03/200317175438.htm">
                 https://www.sciencedaily.com/releases/2020/03/200317175438.htm
+              </a>
+            </li>
+            <li>
+              Percentage of Population Infected in China:{" "}
+              <a href="https://www.bloomberg.com/news/articles/2020-03-18/as-china-virus-cases-near-zero-experts-warn-of-second-wave">
+                https://www.bloomberg.com/news/articles/2020-03-18/as-china-virus-cases-near-zero-experts-warn-of-second-wave
               </a>
             </li>
             <li>
