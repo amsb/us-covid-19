@@ -24,52 +24,74 @@ export default function App() {
 
   useEffect(() => {
     async function fetchData() {
-      const response = await fetch(
-        "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"
-      )
-      const csv = await response.text()
-      const rawData = Papa.parse(csv).data
-
-      const data = {}
-      rawData.forEach(row => {
-        if (row[1] === "US" && states[row[0]] != null) {
-          data[row[0]] = row
-            .slice(4)
-            .map(s => parseInt(s, 10))
-            .map((c, t) => ({
-              t,
-              c: c,
-              date: new Date(rawData[0].slice(4)[t])
-            }))
-        }
-      })
-
-      let totalData = null
-      for (const stateName in data) {
-        if (totalData === null) {
-          totalData = data[stateName].map(point => ({ ...point }))
-        } else {
-          // eslint-disable-next-line
-          data[stateName].forEach(({ c }, t) => {
-            totalData[t].c += c
-          })
-        }
-      }
-      if (
-        totalData[totalData.length - 1].c === totalData[totalData.length - 2].c
-      ) {
-        totalData = totalData.slice(0, totalData.length - 1)
-        Object.keys(data).forEach(stateName => {
-          data[stateName] = data[stateName].slice(0, data[stateName].length - 1)
-        })
-      }
-
-      data["US"] = totalData
-
       let region = "US"
       if (window.location.pathname.length > 1) {
         region = stateCodes[window.location.pathname.slice(1)]
       }
+
+      const data = {}
+      if (region === "US") {
+        const response = await fetch(
+          "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+        )
+        const csv = await response.text()
+        const rawData = Papa.parse(csv).data
+
+        rawData.forEach(row => {
+          if (row[0] === "" && row[1] === "US") {
+            data[row[1]] = row
+              .slice(4)
+              .map(s => parseInt(s, 10))
+              .map((c, t) => ({
+                t,
+                c: c,
+                date: new Date(rawData[0].slice(4)[t])
+              }))
+          }
+        })
+      } else {
+        const response = await fetch(
+          "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"
+        )
+        const csv = await response.text()
+        const rawData = Papa.parse(csv).data
+
+        rawData.forEach(row => {
+          if (row[1] === "US" && states[row[0]] != null) {
+            data[row[0]] = row
+              .slice(4)
+              .map(s => parseInt(s, 10))
+              .map((c, t) => ({
+                t,
+                c: c,
+                date: new Date(rawData[0].slice(4)[t])
+              }))
+          }
+        })
+
+        let totalData = null
+        for (const stateName in data) {
+          if (totalData === null) {
+            totalData = data[stateName].map(point => ({ ...point }))
+          } else {
+            // eslint-disable-next-line
+            data[stateName].forEach(({ c }, t) => {
+              totalData[t].c += c
+            })
+          }
+        }
+        if (
+          totalData[totalData.length - 1].c === totalData[totalData.length - 2].c
+        ) {
+          totalData = totalData.slice(0, totalData.length - 1)
+          Object.keys(data).forEach(stateName => {
+            data[stateName] = data[stateName].slice(0, data[stateName].length - 1)
+          })
+        }
+
+        data["US"] = totalData
+      }
+
       let selectedData = data[region]
       const baseDate = selectedData[0].date
 
@@ -182,11 +204,11 @@ export default function App() {
             <Tooltip cursor={{ strokeDasharray: "3 3" }} />
             <Scatter name="Confirmed Cases" dataKey="c" fill="black" />
             <Line
-              // name={
-              //   <span>
-              //     ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
-              //   </span>
-              // }
+              name={
+                <span>
+                  ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
+                </span>
+              }
               dataKey="cFit"
               stroke="blue"
               dot={false}
