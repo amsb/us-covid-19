@@ -26,7 +26,7 @@ export default function App() {
     async function fetchData() {
       let region = "US"
       if (window.location.pathname.length > 1) {
-        region = stateCodes[window.location.pathname.slice(1)]
+        region = stateCodes[window.location.pathname.slice(1).toUpperCase()]
       }
 
       const data = {}
@@ -81,11 +81,15 @@ export default function App() {
           }
         }
         if (
-          totalData[totalData.length - 1].c === totalData[totalData.length - 2].c
+          totalData[totalData.length - 1].c ===
+          totalData[totalData.length - 2].c
         ) {
           totalData = totalData.slice(0, totalData.length - 1)
           Object.keys(data).forEach(stateName => {
-            data[stateName] = data[stateName].slice(0, data[stateName].length - 1)
+            data[stateName] = data[stateName].slice(
+              0,
+              data[stateName].length - 1
+            )
           })
         }
 
