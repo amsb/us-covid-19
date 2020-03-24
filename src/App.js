@@ -13,6 +13,7 @@ import {
 } from "recharts"
 
 import stateNames from "./stateNames.json"
+import stateCodes from "./stateCodes.json"
 import "./styles.css"
 
 const states = {}
@@ -54,9 +55,22 @@ export default function App() {
           })
         }
       }
-      data["TOTAL"] = totalData
+      if (
+        totalData[totalData.length - 1].c === totalData[totalData.length - 2].c
+      ) {
+        totalData = totalData.slice(0, totalData.length - 1)
+        Object.keys(data).forEach(stateName => {
+          data[stateName] = data[stateName].slice(0, data[stateName].length - 1)
+        })
+      }
 
-      let selectedData = data["TOTAL"]
+      data["US"] = totalData
+
+      let region = "US"
+      if (window.location.pathname.length > 1) {
+        region = stateCodes[window.location.pathname.slice(1)]
+      }
+      let selectedData = data[region]
       const baseDate = selectedData[0].date
 
       let offset = null
@@ -66,6 +80,10 @@ export default function App() {
         }
       })
       selectedData = selectedData.slice(offset)
+
+      selectedData = selectedData.filter(
+        (p, i) => i === 0 || p.c !== selectedData[i - 1].c
+      )
 
       const regression = regressionExp()
         .x(d => d.t)
@@ -86,6 +104,7 @@ export default function App() {
 
       setState({
         data,
+        region,
         selectedData,
         baseDate,
         rSquared,
@@ -123,6 +142,9 @@ export default function App() {
     //   status = "Maybe!?"
     // }
 
+    const regionName =
+      state.region === "US" ? "the United States" : state.region
+
     return (
       <div
         style={{
@@ -139,7 +161,7 @@ export default function App() {
             marginRight: "auto"
           }}
         >
-          <h2>Have We Flattened the COVID-19 Curve in the United States?</h2>
+          <h2>Have We Flattened the COVID-19 Curve in {regionName}?</h2>
           {/* <h2 style={{ color: "red" }}>{status}</h2> */}
           <p>As of {asOfDate.toDateString()}</p>
           <ComposedChart data={state.selectedData} width={400} height={400}>
@@ -160,11 +182,11 @@ export default function App() {
             <Tooltip cursor={{ strokeDasharray: "3 3" }} />
             <Scatter name="Confirmed Cases" dataKey="c" fill="black" />
             <Line
-              name={
-                <span>
-                  ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
-                </span>
-              }
+              // name={
+              //   <span>
+              //     ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
+              //   </span>
+              // }
               dataKey="cFit"
               stroke="blue"
               dot={false}
@@ -177,27 +199,31 @@ export default function App() {
         </div>
         <br />
         <p>
-          The growth rate of the number of new COVID-19 cases in the United
-          States has a <strong>{(100 * state.rSquared).toFixed(0)}%</strong> fit
-          to exponential growth and appears to be doubling every{" "}
+          The growth rate of the number of new COVID-19 cases in {regionName}{" "}
+          has a <strong>{(100 * state.rSquared).toFixed(0)}%</strong> fit to
+          exponential growth and appears to be doubling every{" "}
           <strong>{state.doublingTime.toFixed(2)} days</strong>.
         </p>
-        <p>
-          The United States will reach 1% infection on{" "}
-          <strong>{dateOf1.toDateString()}</strong> if unabated exponential
-          growth continues. The upper limit on what China believes were
-          infected.
-        </p>
-        <p>
-          Unabated, we will run out of hospital beds on{" "}
-          <strong>{dateOfNoBeds.toDateString()}</strong> assuming a 12%
-          hospitalization rate.
-        </p>
-        <p>
-          The United States will reach 100% infection on{" "}
-          <strong>{dateOf100.toDateString()}</strong> if unabated exponential
-          growth continues.
-        </p>
+        {state.region === "US" ? (
+          <>
+            <p>
+              The United States will reach 1% infection on{" "}
+              <strong>{dateOf1.toDateString()}</strong> if unabated exponential
+              growth continues. The upper limit on what China believes were
+              infected.
+            </p>
+            <p>
+              Unabated, we will run out of hospital beds on{" "}
+              <strong>{dateOfNoBeds.toDateString()}</strong> assuming a 12%
+              hospitalization rate.
+            </p>
+            <p>
+              The United States will reach 100% infection on{" "}
+              <strong>{dateOf100.toDateString()}</strong> if unabated
+              exponential growth continues.
+            </p>
+          </>
+        ) : null}
         <p>
           It's important to understand that confirmed cases lag new infections
           by about 5 days (the incubation period), so this is a trailing
@@ -263,7 +289,7 @@ export default function App() {
         <br />
         <div style={{ textAlign: "center", fontStyle: "italic" }}>
           Created by{" "}
-          <a href="https://twitter.com/alexsauerbudge">alexsauerbudge</a>.
+          <a href="https://twitter.com/alexsauerbudge">alexsauerbudge</a>.<br />
           Provided "as is" with all faults and no guarantee of accuracy,
           correctness, or fitness for any purpose.
         </div>
