@@ -35,6 +35,7 @@ export default function App() {
           : `https://covidtracking.com/api/states/daily?state=${region}`
       )
       let data = (await response.json())
+        .filter(obs => obs.positive > 0)
         .sort((a, b) => a.date - b.date)
         .map((obs, timeIndex) => ({
           ...obs,
@@ -102,157 +103,169 @@ export default function App() {
       state.region === "US" ? "the United States" : stateNames[state.region]
 
     return (
-      <div
-        style={{
-          maxWidth: "800px",
-          marginLeft: "auto",
-          marginRight: "auto"
-        }}
-      >
+      <>
+        <div style={{ width: "2em", float: "right" }}>
+          {Object.keys(stateNames).map(stateCode => (
+            <>
+              <a href={`/${stateCode}`}>{stateCode}</a>
+              {stateCode === "US" && <br />}
+              <br />
+            </>
+          ))}
+        </div>
         <div
           style={{
-            textAlign: "center",
-            width: "400px",
+            maxWidth: "800px",
             marginLeft: "auto",
             marginRight: "auto"
           }}
         >
-          <h2>Have We Flattened the COVID-19 Curve in {regionName}?</h2>
-          {/* <h2 style={{ color: "red" }}>{status}</h2> */}
-          <p>As of {asOfDate.toDateString()}</p>
-          <ComposedChart data={state.data} width={400} height={400}>
-            <CartesianGrid />
-            <XAxis
-              type="number"
-              dataKey="timeIndex"
-              name={`Days Since ${state.baseDate.toDateString()}`}
-              domain={["dataMin", "dataMax"]}
-              unit=""
-            />
-            <YAxis
-              type="number"
-              dataKey="positive"
-              name="Number of Confirmed COVID-19 Cases"
-              unit=""
-            />
-            <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-            <Scatter name="Positive Cases" dataKey="c" fill="black" />
-            <Line
-              name={
-                <span>
-                  ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
-                </span>
-              }
-              dataKey="cFit"
-              stroke="blue"
-              dot={false}
-            />
-            <Legend verticalAlign="top" height={36} />
-          </ComposedChart>
-          <div style={{ fontSize: "smaller", fontStyle: "italic" }}>
-            Days Since First Reported Positive <br />(
-            {state.baseDate.toDateString()})
+          <div
+            style={{
+              textAlign: "center",
+              width: "400px",
+              marginLeft: "auto",
+              marginRight: "auto"
+            }}
+          >
+            <h2>Have We Flattened the COVID-19 Curve in {regionName}?</h2>
+            {/* <h2 style={{ color: "red" }}>{status}</h2> */}
+            <p>As of {asOfDate.toDateString()}</p>
+            <ComposedChart data={state.data} width={400} height={400}>
+              <CartesianGrid />
+              <XAxis
+                type="number"
+                dataKey="timeIndex"
+                name={`Days Since ${state.baseDate.toDateString()}`}
+                domain={["dataMin", "dataMax"]}
+                unit=""
+              />
+              <YAxis
+                type="number"
+                dataKey="positive"
+                name="Number of Confirmed COVID-19 Cases"
+                unit=""
+              />
+              <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+              <Scatter name="Positive Cases" dataKey="c" fill="black" />
+              <Line
+                name={
+                  <span>
+                    ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
+                  </span>
+                }
+                dataKey="cFit"
+                stroke="blue"
+                dot={false}
+              />
+              <Legend verticalAlign="top" height={36} />
+            </ComposedChart>
+            <div style={{ fontSize: "smaller", fontStyle: "italic" }}>
+              Days Since First Reported Positive <br />(
+              {state.baseDate.toDateString()})
+            </div>
           </div>
-        </div>
-        <br />
-        <p>
-          The growth rate of the number of new COVID-19 cases in {regionName}{" "}
-          has a <strong>{(100 * state.rSquared).toFixed(0)}%</strong> fit to
-          exponential growth and appears to be doubling every{" "}
-          <strong>{state.doublingTime.toFixed(2)} days</strong>.
-        </p>
-        {state.region === "US" ? (
-          <>
-            <p>
-              The United States will reach 1% infection on{" "}
-              <strong>{dateOf1.toDateString()}</strong> if unabated exponential
-              growth continues.
-            </p>
-            <p>
-              Unabated, we will run out of hospital beds on{" "}
-              <strong>{dateOfNoBeds.toDateString()}</strong> assuming a 12%
-              hospitalization rate.
-            </p>
-            <p>
-              The United States will reach 100% infection on{" "}
-              <strong>{dateOf100.toDateString()}</strong> if unabated
-              exponential growth continues.
-            </p>
-          </>
-        ) : null}
-        <p>
-          It's important to understand that confirmed cases lag new infections
-          by about 5 days (the incubation period), so this is a trailing
-          indicator that tells us how well we were controlling the spread a week
-          ago.
-        </p>
-        <br />
-        <br />
-        <div>
-          References:
-          <ul>
-            <li>
-              Data Source:{" "}
-              <a href="https://covidtracking.com/">
-                https://covidtracking.com/
-              </a>
-            </li>
-            <li>
-              COVID-19 median incubation period:{" "}
-              <a href="https://www.sciencedaily.com/releases/2020/03/200317175438.htm">
-                https://www.sciencedaily.com/releases/2020/03/200317175438.htm
-              </a>
-            </li>
-            {state.region === "US" ? (
-              <>
-                <li>
-                  Number of Hospital Beds in the United States:{" "}
-                  <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
-                    https://www.aha.org/statistics/fast-facts-us-hospitals
-                  </a>
-                </li>
-                <li>
-                  Hospitalization rates of COVID-19 in the United States:{" "}
-                  <a href="https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm">
-                    https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
-                  </a>
-                </li>
-                <li>
-                  Number of Hospital Beds in the United States:{" "}
-                  <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
-                    https://www.aha.org/statistics/fast-facts-us-hospitals
-                  </a>
-                </li>
-                <li>
-                  United States Population:{" "}
-                  <a href="https://www.worldometers.info/world-population/us-population/">
-                    https://www.worldometers.info/world-population/us-population/
-                  </a>
-                </li>
-              </>
-            ) : null}
-            <li>
-              Exponential Growth:{" "}
-              <a href="https://en.wikipedia.org/wiki/Exponential_growth">
-                https://en.wikipedia.org/wiki/Exponential_growth
-              </a>
-            </li>
-          </ul>
-        </div>
-        <br />
-        <br />
-        <div style={{ textAlign: "center", fontStyle: "italic" }}>
-          Created by{" "}
-          <a href="https://twitter.com/alexsauerbudge">alexsauerbudge</a>.<br />
-          Provided "as is" with all faults and no guarantee of accuracy,
-          correctness, or fitness for any purpose.
-        </div>
-        {/* {series.map((total, index) => (
+          <br />
+          <p>
+            The growth rate of the number of new COVID-19 cases in {regionName}{" "}
+            has a <strong>{(100 * state.rSquared).toFixed(0)}%</strong> fit to
+            exponential growth and appears to be doubling every{" "}
+            <strong>{state.doublingTime.toFixed(2)} days</strong>.
+          </p>
+          {state.region === "US" ? (
+            <>
+              <p>
+                The United States will reach 1% infection on{" "}
+                <strong>{dateOf1.toDateString()}</strong> if unabated
+                exponential growth continues.
+              </p>
+              <p>
+                Unabated, we will run out of hospital beds on{" "}
+                <strong>{dateOfNoBeds.toDateString()}</strong> assuming a 12%
+                hospitalization rate.
+              </p>
+              <p>
+                The United States will reach 100% infection on{" "}
+                <strong>{dateOf100.toDateString()}</strong> if unabated
+                exponential growth continues.
+              </p>
+            </>
+          ) : null}
+          <p>
+            It's important to understand that confirmed cases lag new infections
+            by about 5 days (the incubation period), so this is a trailing
+            indicator that tells us how well we were controlling the spread a
+            week ago.
+          </p>
+          <br />
+          <br />
+          <div>
+            References:
+            <ul>
+              <li>
+                Data Source:{" "}
+                <a href="https://covidtracking.com/">
+                  https://covidtracking.com/
+                </a>
+              </li>
+              <li>
+                COVID-19 median incubation period:{" "}
+                <a href="https://www.sciencedaily.com/releases/2020/03/200317175438.htm">
+                  https://www.sciencedaily.com/releases/2020/03/200317175438.htm
+                </a>
+              </li>
+              {state.region === "US" ? (
+                <>
+                  <li>
+                    Number of Hospital Beds in the United States:{" "}
+                    <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
+                      https://www.aha.org/statistics/fast-facts-us-hospitals
+                    </a>
+                  </li>
+                  <li>
+                    Hospitalization rates of COVID-19 in the United States:{" "}
+                    <a href="https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm">
+                      https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
+                    </a>
+                  </li>
+                  <li>
+                    Number of Hospital Beds in the United States:{" "}
+                    <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
+                      https://www.aha.org/statistics/fast-facts-us-hospitals
+                    </a>
+                  </li>
+                  <li>
+                    United States Population:{" "}
+                    <a href="https://www.worldometers.info/world-population/us-population/">
+                      https://www.worldometers.info/world-population/us-population/
+                    </a>
+                  </li>
+                </>
+              ) : null}
+              <li>
+                Exponential Growth:{" "}
+                <a href="https://en.wikipedia.org/wiki/Exponential_growth">
+                  https://en.wikipedia.org/wiki/Exponential_growth
+                </a>
+              </li>
+            </ul>
+          </div>
+          <br />
+          <br />
+          <div style={{ textAlign: "center", fontStyle: "italic" }}>
+            Created by{" "}
+            <a href="https://twitter.com/alexsauerbudge">alexsauerbudge</a>.
+            <br />
+            Provided "as is" with all faults and no guarantee of accuracy,
+            correctness, or fitness for any purpose.
+          </div>
+          {/* {series.map((total, index) => (
           <div key={index}>
             {indexes[index]}, {total}
           </div>
         ))} */}
-      </div>
+        </div>
+      </>
     )
   } else {
     return <div>Loading...</div>
