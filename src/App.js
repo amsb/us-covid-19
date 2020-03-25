@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react"
-import Papa from "papaparse"
 import { regressionExp } from "d3-regression"
 import {
   ComposedChart,
@@ -13,11 +12,12 @@ import {
 } from "recharts"
 
 import stateNames from "./stateNames.json"
-import stateCodes from "./stateCodes.json"
 import "./styles.css"
 
-const states = {}
-stateNames.forEach(name => (states[name] = true))
+function parseDate(dateInteger) {
+  const s = dateInteger.toString()
+  return new Date(s.slice(0, 4), s.slice(4, 6) - 1, s.slice(6, 8))
+}
 
 export default function App() {
   const [state, setState] = useState(null)
@@ -26,112 +26,44 @@ export default function App() {
     async function fetchData() {
       let region = "US"
       if (window.location.pathname.length > 1) {
-        region = stateCodes[window.location.pathname.slice(1).toUpperCase()]
+        region = window.location.pathname.slice(1).toUpperCase()
       }
 
-      const data = {}
-      if (region === "US") {
-        const response = await fetch(
-          "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
-        )
-        const csv = await response.text()
-        const rawData = Papa.parse(csv).data
-
-        rawData.forEach(row => {
-          if (row[0] === "" && row[1] === "US") {
-            data[row[1]] = row
-              .slice(4)
-              .map(s => parseInt(s, 10))
-              .map((c, t) => ({
-                t,
-                c: c,
-                date: new Date(rawData[0].slice(4)[t])
-              }))
-          }
-        })
-      } else {
-        const response = await fetch(
-          "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"
-        )
-        const csv = await response.text()
-        const rawData = Papa.parse(csv).data
-
-        rawData.forEach(row => {
-          if (row[1] === "US" && states[row[0]] != null) {
-            data[row[0]] = row
-              .slice(4)
-              .map(s => parseInt(s, 10))
-              .map((c, t) => ({
-                t,
-                c: c,
-                date: new Date(rawData[0].slice(4)[t])
-              }))
-          }
-        })
-
-        let totalData = null
-        for (const stateName in data) {
-          if (totalData === null) {
-            totalData = data[stateName].map(point => ({ ...point }))
-          } else {
-            // eslint-disable-next-line
-            data[stateName].forEach(({ c }, t) => {
-              totalData[t].c += c
-            })
-          }
-        }
-        if (
-          totalData[totalData.length - 1].c ===
-          totalData[totalData.length - 2].c
-        ) {
-          totalData = totalData.slice(0, totalData.length - 1)
-          Object.keys(data).forEach(stateName => {
-            data[stateName] = data[stateName].slice(
-              0,
-              data[stateName].length - 1
-            )
-          })
-        }
-
-        data["US"] = totalData
-      }
-
-      let selectedData = data[region]
-      const baseDate = selectedData[0].date
-
-      let offset = null
-      selectedData.forEach((point, t) => {
-        if (offset === null && point.c > 0) {
-          offset = t
-        }
-      })
-      selectedData = selectedData.slice(offset)
-
-      selectedData = selectedData.filter(
-        (p, i) => i === 0 || p.c !== selectedData[i - 1].c
+      const response = await fetch(
+        region === "US"
+          ? "https://covidtracking.com/api/us/daily"
+          : `https://covidtracking.com/api/states/daily?state=${region}`
       )
+      let data = (await response.json())
+        .sort((a, b) => a.date - b.date)
+        .map((obs, timeIndex) => ({
+          ...obs,
+          date: parseDate(obs.date),
+          timeIndex
+        }))
 
       const regression = regressionExp()
-        .x(d => d.t)
-        .y(d => d.c)(selectedData)
+        .x(obs => obs.timeIndex)
+        .y(obs => obs.positive)(data)
 
       const c0 = regression.a
       const doublingTime = Math.log(2) / regression.b
       const daysUntil = n =>
         Math.ceil(
           (doublingTime * Math.log(n / c0)) / Math.log(2) -
-            selectedData[selectedData.length - 1].t
+            data[data.length - 1].timeIndex
         )
       const rSquared = regression.rSquared
 
-      selectedData.forEach(({ t }, index) => {
-        selectedData[index].cFit = c0 * Math.pow(2, t / doublingTime)
-      })
+      data = data.map(obs => ({
+        ...obs,
+        cFit: c0 * Math.pow(2, obs.timeIndex / doublingTime)
+      }))
+      const baseDate = new Date(data[0].date.toString())
 
       setState({
         data,
         region,
-        selectedData,
         baseDate,
         rSquared,
         daysUntil,
@@ -145,9 +77,7 @@ export default function App() {
   }, [state])
 
   if (state) {
-    const asOfDate = new Date(
-      state.selectedData[state.selectedData.length - 1].date
-    )
+    const asOfDate = new Date(state.data[state.data.length - 1].date)
 
     const daysUntil100 = state.daysUntil(331e6)
     let dateOf100 = new Date(Number(asOfDate))
@@ -169,7 +99,7 @@ export default function App() {
     // }
 
     const regionName =
-      state.region === "US" ? "the United States" : state.region
+      state.region === "US" ? "the United States" : stateNames[state.region]
 
     return (
       <div
@@ -190,23 +120,23 @@ export default function App() {
           <h2>Have We Flattened the COVID-19 Curve in {regionName}?</h2>
           {/* <h2 style={{ color: "red" }}>{status}</h2> */}
           <p>As of {asOfDate.toDateString()}</p>
-          <ComposedChart data={state.selectedData} width={400} height={400}>
+          <ComposedChart data={state.data} width={400} height={400}>
             <CartesianGrid />
             <XAxis
               type="number"
-              dataKey="t"
+              dataKey="timeIndex"
               name={`Days Since ${state.baseDate.toDateString()}`}
               domain={["dataMin", "dataMax"]}
               unit=""
             />
             <YAxis
               type="number"
-              dataKey="c"
+              dataKey="positive"
               name="Number of Confirmed COVID-19 Cases"
               unit=""
             />
             <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-            <Scatter name="Confirmed Cases" dataKey="c" fill="black" />
+            <Scatter name="Positive Cases" dataKey="c" fill="black" />
             <Line
               name={
                 <span>
@@ -219,9 +149,10 @@ export default function App() {
             />
             <Legend verticalAlign="top" height={36} />
           </ComposedChart>
-          <div
-            style={{ fontSize: "smaller", fontStyle: "italic" }}
-          >{`Days Since ${state.baseDate.toDateString()}`}</div>
+          <div style={{ fontSize: "smaller", fontStyle: "italic" }}>
+            Days Since First Reported Positive <br />(
+            {state.baseDate.toDateString()})
+          </div>
         </div>
         <br />
         <p>
@@ -261,9 +192,9 @@ export default function App() {
           References:
           <ul>
             <li>
-              Confirmed COVID-19 cases in the United States:{" "}
-              <a href="https://github.com/CSSEGISandData/COVID-19">
-                https://github.com/CSSEGISandData/COVID-19
+              Data Source:{" "}
+              <a href="https://covidtracking.com/">
+                https://covidtracking.com/
               </a>
             </li>
             <li>
@@ -272,30 +203,34 @@ export default function App() {
                 https://www.sciencedaily.com/releases/2020/03/200317175438.htm
               </a>
             </li>
-            <li>
-              Number of Hospital Beds in the United States:{" "}
-              <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
-                https://www.aha.org/statistics/fast-facts-us-hospitals
-              </a>
-            </li>
-            <li>
-              Hospitalization rates of COVID-19 in the United States:{" "}
-              <a href="https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm">
-                https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
-              </a>
-            </li>
-            <li>
-              Number of Hospital Beds in the United States:{" "}
-              <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
-                https://www.aha.org/statistics/fast-facts-us-hospitals
-              </a>
-            </li>
-            <li>
-              United States Population:{" "}
-              <a href="https://www.worldometers.info/world-population/us-population/">
-                https://www.worldometers.info/world-population/us-population/
-              </a>
-            </li>
+            {state.region === "US" ? (
+              <>
+                <li>
+                  Number of Hospital Beds in the United States:{" "}
+                  <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
+                    https://www.aha.org/statistics/fast-facts-us-hospitals
+                  </a>
+                </li>
+                <li>
+                  Hospitalization rates of COVID-19 in the United States:{" "}
+                  <a href="https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm">
+                    https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
+                  </a>
+                </li>
+                <li>
+                  Number of Hospital Beds in the United States:{" "}
+                  <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
+                    https://www.aha.org/statistics/fast-facts-us-hospitals
+                  </a>
+                </li>
+                <li>
+                  United States Population:{" "}
+                  <a href="https://www.worldometers.info/world-population/us-population/">
+                    https://www.worldometers.info/world-population/us-population/
+                  </a>
+                </li>
+              </>
+            ) : null}
             <li>
               Exponential Growth:{" "}
               <a href="https://en.wikipedia.org/wiki/Exponential_growth">
