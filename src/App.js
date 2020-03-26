@@ -46,15 +46,19 @@ export default function App() {
       const regression = regressionExp()
         .x(obs => obs.timeIndex)
         .y(obs => obs.positive)(data)
-
-      const c0 = regression.a
       const doublingTime = Math.log(2) / regression.b
+      const c0 = regression.a
       const daysUntil = n =>
         Math.ceil(
           (doublingTime * Math.log(n / c0)) / Math.log(2) -
             data[data.length - 1].timeIndex
         )
       const rSquared = regression.rSquared
+
+      const regressionM5 = regressionExp()
+        .x(obs => obs.timeIndex)
+        .y(obs => obs.positive)(data.slice(0, data.length - 5))
+      const doublingTimeM5 = Math.log(2) / regressionM5.b
 
       data = data.map(obs => ({
         ...obs,
@@ -69,6 +73,7 @@ export default function App() {
         rSquared,
         daysUntil,
         doublingTime,
+        doublingTimeM5,
         c0
       })
     }
@@ -104,10 +109,12 @@ export default function App() {
 
     return (
       <>
-        <div style={{ width: "2em", float: "right" }}>
+        <div key={state.region} style={{ width: "2em", float: "right" }}>
           {Object.keys(stateNames).map(stateCode => (
             <>
-              <a href={`/${stateCode}`}>{stateCode}</a>
+              <a key={stateCode} href={`/${stateCode}`}>
+                {stateCode}
+              </a>
               {stateCode === "US" && <br />}
               <br />
             </>
@@ -171,6 +178,14 @@ export default function App() {
             has a <strong>{(100 * state.rSquared).toFixed(0)}%</strong> fit to
             exponential growth and appears to be doubling every{" "}
             <strong>{state.doublingTime.toFixed(2)} days</strong>.
+          </p>
+          <p>
+            The doubling time 5 days ago was{" "}
+            <strong>{state.doublingTimeM5.toFixed(2)} days</strong>. The
+            doubling time is{" "}
+            {state.doublingTime > state.doublingTimeM5
+              ? "is increasing, which is encouraging!"
+              : "is decreasing, which is worrisome."}
           </p>
           {state.region === "US" ? (
             <>
