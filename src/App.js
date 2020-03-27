@@ -20,32 +20,46 @@ function parseDate(dateInteger) {
 }
 
 export default function App() {
-  const [state, setState] = useState(null)
+  // eslint-disable-next-line
+  const [region, setRegion] = useState(
+    window.location.pathname.length > 1
+      ? window.location.pathname.slice(1).toUpperCase()
+      : "US"
+  )
+  const [data, setData] = useState(null)
+  const [analysis, setAnalysis] = useState(null)
+  // eslint-disable-next-line
+  const [variable, setVariable] = useState(
+    window.location.search !== ""
+      ? new URL(window.location).searchParams.get("variable")
+      : "positive"
+  )
 
   useEffect(() => {
     async function fetchData() {
-      let region = "US"
-      if (window.location.pathname.length > 1) {
-        region = window.location.pathname.slice(1).toUpperCase()
-      }
-
       const response = await fetch(
         region === "US"
           ? "https://covidtracking.com/api/us/daily"
           : `https://covidtracking.com/api/states/daily?state=${region}`
       )
       let data = (await response.json())
-        .filter(obs => obs.positive > 0)
+        .filter(obs => obs[variable] > 0)
         .sort((a, b) => a.date - b.date)
         .map((obs, timeIndex) => ({
           ...obs,
           date: parseDate(obs.date),
           timeIndex
         }))
+      setData(data)
+    }
+    fetchData()
+  }, [region, variable, setData])
 
+  useEffect(() => {
+    if (data) {
       const regression = regressionExp()
         .x(obs => obs.timeIndex)
-        .y(obs => obs.positive)(data)
+        .y(obs => obs[variable])(data)
       const doublingTime = Math.log(2) / regression.b
       const c0 = regression.a
       const daysUntil = n =>
@@ -57,18 +71,16 @@ export default function App() {
 
       const regressionM5 = regressionExp()
         .x(obs => obs.timeIndex)
-        .y(obs => obs.positive)(data.slice(0, data.length - 5))
+        .y(obs => obs[variable])(data.slice(0, data.length - 5))
       const doublingTimeM5 = Math.log(2) / regressionM5.b
-
-      data = data.map(obs => ({
+      const baseDate = new Date(data[0].date.toString())
+      const chartData = data.map(obs => ({
         ...obs,
         cFit: c0 * Math.pow(2, obs.timeIndex / doublingTime)
       }))
-      const baseDate = new Date(data[0].date.toString())
 
-      setState({
-        data,
-        region,
+      setAnalysis({
+        chartData,
         baseDate,
         rSquared,
         daysUntil,
@@ -77,39 +89,38 @@ export default function App() {
         c0
       })
     }
-    if (state == null) {
-      fetchData()
-    }
-  }, [state])
+  }, [data, variable, setAnalysis])
 
-  if (state) {
-    const asOfDate = new Date(state.data[state.data.length - 1].date)
+  if (analysis) {
+    const asOfDate = new Date(
+      analysis.chartData[analysis.chartData.length - 1].date
+    )
 
-    const daysUntil100 = state.daysUntil(331e6)
+    const daysUntil100 = analysis.daysUntil(331e6)
     let dateOf100 = new Date(Number(asOfDate))
     dateOf100.setDate(asOfDate.getDate() + daysUntil100)
 
-    const daysUntil1 = state.daysUntil(331e6 / 100)
+    const daysUntil1 = analysis.daysUntil(331e6 / 100)
     let dateOf1 = new Date(Number(asOfDate))
     dateOf1.setDate(asOfDate.getDate() + daysUntil1)
 
-    const daysUntilNoBeds = state.daysUntil(924107 / 0.12)
+    const daysUntilNoBeds = analysis.daysUntil(924107 / 0.12)
     let dateOfNoBeds = new Date(Number(asOfDate))
     dateOfNoBeds.setDate(asOfDate.getDate() + daysUntilNoBeds)
 
     // let status = "No."
-    // if (state.rSquared < 0.8) {
+    // if (analysis.rSquared < 0.8) {
     //   status = "Yes!?"
-    // } else if (state.rSquared < 0.9) {
+    // } else if (analysis.rSquared < 0.9) {
     //   status = "Maybe!?"
     // }
 
     const regionName =
-      state.region === "US" ? "the United States" : stateNames[state.region]
+      region === "US" ? "the United States" : stateNames[region]
 
     return (
-      <>
-        <div key={state.region} style={{ width: "2em", float: "right" }}>
+      <div key={region}>
+        <div style={{ width: "2em", float: "right" }}>
           {Object.keys(stateNames).map(stateCode => (
             <>
               <a key={stateCode} href={`/${stateCode}`}>
@@ -138,27 +149,27 @@ export default function App() {
             <h2>Have We Flattened the COVID-19 Curve in {regionName}?</h2>
             {/* <h2 style={{ color: "red" }}>{status}</h2> */}
             <p>As of {asOfDate.toDateString()}</p>
-            <ComposedChart data={state.data} width={400} height={400}>
+            <ComposedChart data={analysis.chartData} width={400} height={400}>
               <CartesianGrid />
               <XAxis
                 type="number"
                 dataKey="timeIndex"
-                name={`Days Since ${state.baseDate.toDateString()}`}
+                name={`days since ${analysis.baseDate.toDateString()}`}
                 domain={["dataMin", "dataMax"]}
                 unit=""
               />
               <YAxis
                 type="number"
-                dataKey="positive"
-                name="Number of Confirmed COVID-19 Cases"
+                dataKey={variable}
+                name={`number ${variable}s`}
                 unit=""
               />
               <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-              <Scatter name="Positive Cases" dataKey="c" fill="black" />
+              <Scatter name={`${variable}s`} dataKey={variable} fill="black" />
               <Line
                 name={
                   <span>
-                    ~2<sup>t/{state.doublingTime.toFixed(3)}</sup>
+                    ~2<sup>t/{analysis.doublingTime.toFixed(3)}</sup>
                   </span>
                 }
                 dataKey="cFit"
@@ -168,26 +179,27 @@ export default function App() {
               <Legend verticalAlign="top" height={36} />
             </ComposedChart>
             <div style={{ fontSize: "smaller", fontStyle: "italic" }}>
-              Days Since First Reported Positive <br />(
-              {state.baseDate.toDateString()})
+              days since first reported {variable}
+              <br />({analysis.baseDate.toDateString()})
             </div>
           </div>
           <br />
           <p>
-            The growth rate of the number of new COVID-19 cases in {regionName}{" "}
-            has a <strong>{(100 * state.rSquared).toFixed(0)}%</strong> fit to
+            The growth rate of the number of new COVID-19 {variable}s in{" "}
+            {regionName} has a{" "}
+            <strong>{(100 * analysis.rSquared).toFixed(0)}%</strong> fit to
             exponential growth and appears to be doubling every{" "}
-            <strong>{state.doublingTime.toFixed(2)} days</strong>.
+            <strong>{analysis.doublingTime.toFixed(2)} days</strong>.
           </p>
           <p>
             The doubling time 5 days ago was{" "}
-            <strong>{state.doublingTimeM5.toFixed(2)} days</strong>. The
+            <strong>{analysis.doublingTimeM5.toFixed(2)} days</strong>. The
             doubling time is{" "}
-            {state.doublingTime > state.doublingTimeM5
+            {analysis.doublingTime > analysis.doublingTimeM5
               ? "is increasing, which is encouraging!"
               : "is decreasing, which is worrisome."}
           </p>
-          {state.region === "US" ? (
+          {region === "US" ? (
             <>
               <p>
                 The United States will reach 1% infection on{" "}
@@ -229,7 +241,7 @@ export default function App() {
                   https://www.sciencedaily.com/releases/2020/03/200317175438.htm
                 </a>
               </li>
-              {state.region === "US" ? (
+              {region === "US" ? (
                 <>
                   <li>
                     Number of Hospital Beds in the United States:{" "}
@@ -280,7 +292,7 @@ export default function App() {
           </div>
         ))} */}
         </div>
-      </>
+      </div>
     )
   } else {
     return <div>Loading...</div>
