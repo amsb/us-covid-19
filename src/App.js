@@ -50,6 +50,11 @@ export default function App() {
           date: parseDate(obs.date),
           timeIndex
         }))
+      data = data.filter(
+        (obs, timeIndex) =>
+          timeIndex === 0 ||
+          data[timeIndex][variable] !== data[timeIndex - 1][variable]
+      )
       setData(data)
     }
     fetchData()
@@ -165,6 +170,11 @@ export default function App() {
                 unit=""
               />
               <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+              <Line
+                dataKey={variable}
+                stroke="black"
+                dot={false}
+              />
               <Scatter name={`${variable}s`} dataKey={variable} fill="black" />
               <Line
                 name={
