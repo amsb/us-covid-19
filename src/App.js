@@ -20,7 +20,7 @@ import {
   ComposedChart,
   Scatter,
   Line,
-  // XAxis,
+  XAxis,
   // YAxis,
   CartesianGrid,
   // Legend,
@@ -580,13 +580,13 @@ function Analysis({ title, series, dates, width = 400 }) {
             <ResponsiveContainer width="100%">
               <ComposedChart data={analysis.chartData}>
                 <CartesianGrid />
-                {/* <XAxis
+                <XAxis
                   type="number"
                   dataKey="timeIndex"
                   // name={`days since ${analysis.baseDate.toDateString()}`}
                   domain={["dataMin", "dataMax"]}
                   unit=""
-                /> */}
+                />
                 {/* <YAxis
                 type="number"
                 dataKey="value"
@@ -620,7 +620,7 @@ function Analysis({ title, series, dates, width = 400 }) {
         <Grid item xs={width <= 400 ? 2 : 3} style={{ textAlign: "left" }}>
           <Statistic
             value={shortDateString(analysis.chartData[0].date)}
-            label="FIRST DATE"
+            label="DAYS SINCE"
           />
         </Grid>
         <Grid item xs={2} style={{ textAlign: "center" }}>
