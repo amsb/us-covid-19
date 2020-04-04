@@ -53,7 +53,7 @@ function analyzeSeries(series, dates) {
         obs.value > 0 &&
         (index === 0 || obs.value !== series[index - 1])
     )
-  if (data.length > 5) {
+  if (data.length >= 5) {
     const regression = regressionExp()
       .x(obs => obs.timeIndex)
       .y(obs => obs.value)(data)
