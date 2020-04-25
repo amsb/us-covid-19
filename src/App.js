@@ -143,7 +143,7 @@ export default function App() {
           align="center"
           style={{ marginBottom: "2em", color: "#555" }}
         >
-          as of {parseDate(data["US"][0].date).toDateString()}
+          as of {parseDate(data["US"][data["US"].length-1].date).toDateString()}
         </Typography>
         <Container maxWidth="md" style={{ marginBottom: "4em" }}>
           <Paper elevation={0}>
