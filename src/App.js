@@ -10,28 +10,29 @@ import ExpansionPanelDetails from "@material-ui/core/ExpansionPanelDetails"
 import Typography from "@material-ui/core/Typography"
 
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore"
-import ArrowForwardIcon from "@material-ui/icons/ArrowForward"
+// import ArrowForwardIcon from "@material-ui/icons/ArrowForward"
 
 import { Sparklines, SparklinesBars } from "react-sparklines"
 
-import { regressionExp } from "d3-regression"
+// import { regressionExp } from "d3-regression"
 import {
   ResponsiveContainer,
   ComposedChart,
-  Scatter,
-  Line,
+  // Scatter,
+  // Line,
+  Bar,
   XAxis,
   // YAxis,
   CartesianGrid,
   // Legend,
-  Tooltip
+  Tooltip,
 } from "recharts"
 
 import stateNames from "./stateNames.json"
 import "./styles.css"
 
 function groupBy(xs, key) {
-  return xs.reduce(function(rv, x) {
+  return xs.reduce(function (rv, x) {
     ;(rv[x[key]] = rv[x[key]] || []).push(x)
     return rv
   }, {})
@@ -42,41 +43,47 @@ function shortDateString(d) {
 }
 
 function analyzeSeries(series, dates) {
-  const data = series
-    .map((value, timeIndex) => ({
-      value,
-      timeIndex
-    }))
-    .filter(
-      (obs, index) =>
-        obs.value &&
-        obs.value > 0 &&
-        (index === 0 || obs.value !== series[index - 1])
-    )
+  const data = series.map((value, timeIndex) => ({
+    value,
+    timeIndex,
+  }))
+  // .filter(
+  //   (obs, index) =>
+  //     obs.value &&
+  //     obs.value > 0 &&
+  //     (index === 0 || obs.value !== series[index - 1])
+  // )
   if (data.length >= 5) {
-    const regression = regressionExp()
-      .x(obs => obs.timeIndex)
-      .y(obs => obs.value)(data)
-    const doublingTime = Math.log(2) / regression.b
-    const c0 = regression.a
-    const daysUntil = n =>
-      Math.ceil(
-        (doublingTime * Math.log(n / c0)) / Math.log(2) -
-          data[data.length - 1].timeIndex
-      )
-    const rSquared = regression.rSquared
+    // const regression = regressionExp()
+    //   .x((obs) => obs.timeIndex)
+    //   .y((obs) => obs.value)(data)
+    // const doublingTime = Math.log(2) / regression.b
+    // const c0 = regression.a
+    // const daysUntil = (n) =>
+    //   Math.ceil(
+    //     (doublingTime * Math.log(n / c0)) / Math.log(2) -
+    //       data[data.length - 1].timeIndex
+    //   )
+    // const rSquared = regression.rSquared
 
-    const chartData = data.map(obs => ({
-      ...obs,
-      date: dates[obs.timeIndex],
-      fit: c0 * Math.pow(2, obs.timeIndex / doublingTime)
-    }))
+    const chartData = data.map((obs, index) => {
+      return {
+        ...obs,
+        // change: index > 1 ? obs.value - data[index - 1].value : 0,
+        date: dates[obs.timeIndex],
+        // fit: c0 * Math.pow(2, obs.timeIndex / doublingTime),
+      }
+    })
+
+    // chartData.forEach((obs, index) => {
+    //   obs.changeFit = index > 1 ? obs.fit - chartData[index - 1].fit : 0
+    // })
 
     return {
-      rSquared,
-      doublingTime,
-      daysUntil,
-      chartData
+      // rSquared,
+      // doublingTime,
+      // daysUntil,
+      chartData,
     }
   } else {
     return null
@@ -98,228 +105,33 @@ export default function App() {
 
       response = await fetch("https://covidtracking.com/api/us/daily")
       data["US"] = await response.json()
+
+      // clean-up data a bit
+      Object.keys(data).forEach((regionCode) => {
+        const regionData = data[regionCode]
+        regionData.reverse().forEach((obs, index, array) => {
+          if (index > 0) {
+            obs.positive = Math.max(
+              obs.positive,
+              array[index - 1].positive || 0
+            )
+            obs.positiveIncrease = obs.positive - array[index - 1].positive
+            obs.hospitalized = Math.max(
+              obs.hospitalized,
+              array[index - 1].hospitalized || 0
+            )
+            obs.hospitalizedIncrease =
+              obs.hospitalized - array[index - 1].hospitalized
+            obs.death = Math.max(obs.death, array[index - 1].death || 0)
+            obs.deathIncrease = obs.death - array[index - 1].death
+          }
+        })
+      })
+
       setData(data)
     }
     fetchData()
   }, [setData])
-
-  // if (analysis) {
-  //   const asOfDate = new Date(
-  //     analysis.chartData[analysis.chartData.length - 1].date
-  //   )
-
-  //   const daysUntil100 = analysis.daysUntil(331e6)
-  //   let dateOf100 = new Date(Number(asOfDate))
-  //   dateOf100.setDate(asOfDate.getDate() + daysUntil100)
-
-  //   const daysUntil1 = analysis.daysUntil(331e6 / 100)
-  //   let dateOf1 = new Date(Number(asOfDate))
-  //   dateOf1.setDate(asOfDate.getDate() + daysUntil1)
-
-  //   const daysUntilNoBeds = analysis.daysUntil(924107 / 0.12)
-  //   let dateOfNoBeds = new Date(Number(asOfDate))
-  //   dateOfNoBeds.setDate(asOfDate.getDate() + daysUntilNoBeds)
-
-  //   // let status = "No."
-  //   // if (analysis.rSquared < 0.8) {
-  //   //   status = "Yes!?"
-  //   // } else if (analysis.rSquared < 0.9) {
-  //   //   status = "Maybe!?"
-  //   // }
-
-  //   const regionName =
-  //     region === "US" ? "the United States" : stateNames[region]
-
-  //   return (
-  //     <div key={region}>
-  //       <div style={{ width: "2em", float: "right" }}>
-  //         {Object.keys(stateNames).map(stateCode => (
-  //           <>
-  //             <a key={stateCode} href={`/${stateCode}`}>
-  //               {stateCode}
-  //             </a>
-  //             {stateCode === "US" && <br />}
-  //             <br />
-  //           </>
-  //         ))}
-  //       </div>
-  //       <div
-  //         style={{
-  //           maxWidth: "800px",
-  //           marginLeft: "auto",
-  //           marginRight: "auto"
-  //         }}
-  //       >
-  //         <div
-  //           style={{
-  //             textAlign: "center",
-  //             width: "400px",
-  //             marginLeft: "auto",
-  //             marginRight: "auto"
-  //           }}
-  //         >
-  //           <h2>Have We Flattened the COVID-19 Curve in {regionName}?</h2>
-  //           {/* <h2 style={{ color: "red" }}>{status}</h2> */}
-  //           <p>As of {asOfDate.toDateString()}</p>
-  //           <ComposedChart data={analysis.chartData} width={400} height={400}>
-  //             <CartesianGrid />
-  //             <XAxis
-  //               type="number"
-  //               dataKey="timeIndex"
-  //               name={`days since ${analysis.baseDate.toDateString()}`}
-  //               domain={["dataMin", "dataMax"]}
-  //               unit=""
-  //             />
-  //             <YAxis
-  //               type="number"
-  //               dataKey={variable}
-  //               name={`number ${variable}s`}
-  //               unit=""
-  //             />
-  //             <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-  //             <Line
-  //               dataKey={variable}
-  //               stroke="black"
-  //               dot={false}
-  //             />
-  //             <Scatter name={`${variable}s`} dataKey={variable} fill="black" />
-  //             <Line
-  //               name={
-  //                 <span>
-  //                   ~2<sup>t/{analysis.doublingTime.toFixed(3)}</sup>
-  //                 </span>
-  //               }
-  //               dataKey="cFit"
-  //               stroke="blue"
-  //               dot={false}
-  //             />
-  //             <Legend verticalAlign="top" height={36} />
-  //           </ComposedChart>
-  //           <div style={{ fontSize: "smaller", fontStyle: "italic" }}>
-  //             days since first reported {variable}
-  //             <br />({analysis.baseDate.toDateString()})
-  //           </div>
-  //         </div>
-  //         <br />
-  //         <p>
-  //           The growth rate of the number of new COVID-19 {variable}s in{" "}
-  //           {regionName} has a{" "}
-  //           <strong>{(100 * analysis.rSquared).toFixed(0)}%</strong> fit to
-  //           exponential growth and appears to be doubling every{" "}
-  //           <strong>{analysis.doublingTime.toFixed(2)} days</strong>.
-  //         </p>
-  //         <p>
-  //           The doubling time 5 days ago was{" "}
-  //           <strong>{analysis.doublingTimeM5.toFixed(2)} days</strong>. The
-  //           doubling time is{" "}
-  //           {analysis.doublingTime > analysis.doublingTimeM5
-  //             ? "is increasing, which is encouraging!"
-  //             : "is decreasing, which is worrisome."}
-  //         </p>
-  //         {region === "US" ? (
-  //           <>
-  //             <p>
-  //               The United States will reach 1% infection on{" "}
-  //               <strong>{dateOf1.toDateString()}</strong> if unabated
-  //               exponential growth continues.
-  //             </p>
-  //             <p>
-  //               Unabated, we will run out of hospital beds on{" "}
-  //               <strong>{dateOfNoBeds.toDateString()}</strong> assuming a 12%
-  //               hospitalization rate.
-  //             </p>
-  //             <p>
-  //               The United States will reach 100% infection on{" "}
-  //               <strong>{dateOf100.toDateString()}</strong> if unabated
-  //               exponential growth continues.
-  //             </p>
-  //           </>
-  //         ) : null}
-  //         <p>
-  //           It's important to understand that confirmed cases lag new infections
-  //           by about 5 days (the incubation period), so this is a trailing
-  //           indicator that tells us how well we were controlling the spread a
-  //           week ago.
-  //         </p>
-  //         <br />
-  //         <br />
-  //         <div>
-  //           References:
-  //           <ul>
-  //             <li>
-  //               Data Source:{" "}
-  //               <a href="https://covidtracking.com/">
-  //                 https://covidtracking.com/
-  //               </a>
-  //             </li>
-  //             <li>
-  //               COVID-19 median incubation period:{" "}
-  //               <a href="https://www.sciencedaily.com/releases/2020/03/200317175438.htm">
-  //                 https://www.sciencedaily.com/releases/2020/03/200317175438.htm
-  //               </a>
-  //             </li>
-  //             {region === "US" ? (
-  //               <>
-  //                 <li>
-  //                   Number of Hospital Beds in the United States:{" "}
-  //                   <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
-  //                     https://www.aha.org/statistics/fast-facts-us-hospitals
-  //                   </a>
-  //                 </li>
-  //                 <li>
-  //                   Hospitalization rates of COVID-19 in the United States:{" "}
-  //                   <a href="https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm">
-  //                     https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
-  //                   </a>
-  //                 </li>
-  //                 <li>
-  //                   Number of Hospital Beds in the United States:{" "}
-  //                   <a href="https://www.aha.org/statistics/fast-facts-us-hospitals">
-  //                     https://www.aha.org/statistics/fast-facts-us-hospitals
-  //                   </a>
-  //                 </li>
-  //                 <li>
-  //                   United States Population:{" "}
-  //                   <a href="https://www.worldometers.info/world-population/us-population/">
-  //                     https://www.worldometers.info/world-population/us-population/
-  //                   </a>
-  //                 </li>
-  //               </>
-  //             ) : null}
-  //             <li>
-  //               Exponential Growth:{" "}
-  //               <a href="https://en.wikipedia.org/wiki/Exponential_growth">
-  //                 https://en.wikipedia.org/wiki/Exponential_growth
-  //               </a>
-  //             </li>
-  //           </ul>
-  //         </div>
-  //         <br />
-  //         <br />
-  //         <div style={{ textAlign: "center", fontStyle: "italic" }}>
-  //           Created by{" "}
-  //           <a href="https://twitter.com/alexsauerbudge">alexsauerbudge</a>.
-  //           <br />
-  //           Provided "as is" with all faults and no guarantee of accuracy,
-  //           correctness, or fitness for any purpose.
-  //         </div>
-  //         {/* {series.map((total, index) => (
-  //         <div key={index}>
-  //           {indexes[index]}, {total}
-  //         </div>
-  //       ))} */}
-  //       </div>
-  //     </div>
-  //   )
-  // } else {
-  //   return <div>Loading...</div>
-  // }
-
-  // return (
-  //   <div>
-  //     <pre>{JSON.stringify(data || {}, null, 2)}</pre>
-  //   </div>
-  // )
 
   if (data) {
     return (
@@ -341,8 +153,8 @@ export default function App() {
         <Container maxWidth="md" style={{ marginTop: "1em" }}>
           <Paper elevation={1}>
             {Object.keys(data)
-              .filter(key => key !== "US" && stateNames[key])
-              .map(stateCode => (
+              .filter((key) => key !== "US" && stateNames[key])
+              .map((stateCode) => (
                 <StatePanel
                   key={stateCode}
                   stateCode={stateCode}
@@ -356,7 +168,7 @@ export default function App() {
             textAlign: "center",
             fontStyle: "italic",
             marginTop: "5em",
-            color: "#888"
+            color: "#888",
           }}
         >
           Created by{" "}
@@ -376,17 +188,18 @@ export default function App() {
 }
 
 function StatePanel({ stateCode, data }) {
-  const positives = data.map(obs => obs.positive || 0).reverse()
-  const hospitalizations = data.map(obs => obs.hospitalized || 0).reverse()
-  const percentChangeInGrowthRate =
-    100 *
-    ((4 * (data[0].positive - data[1].positive)) /
-      (data[1].positive - data[4].positive) -
-      1)
-  const changeInGrowthRateAngle = Math.min(
-    Math.max(-percentChangeInGrowthRate - 45, -90),
-    0
-  )
+  const positives = data.map((obs) => obs.positiveIncrease || 0)
+  // const hospitalizations = data.map((obs) => obs.hospitalizedIncrease || 0)
+  const deaths = data.map((obs) => obs.deathIncrease || 0)
+  // const percentChangeInGrowthRate =
+  //   100 *
+  //   ((4 * (data[0].positive - data[1].positive)) /
+  //     (data[1].positive - data[4].positive) -
+  //     1)
+  // const changeInGrowthRateAngle = Math.min(
+  //   Math.max(-percentChangeInGrowthRate - 45, -90),
+  //   0
+  // )
   return (
     <ExpansionPanel TransitionProps={{ unmountOnExit: true }}>
       <ExpansionPanelSummary
@@ -400,54 +213,56 @@ function StatePanel({ stateCode, data }) {
               {stateNames[stateCode]}
             </Typography>
           </Grid>
-          <Grid item xs={1}>
-            {/* {percentChangeInGrowthRate.toFixed(0)}% */}
-            <ArrowForwardIcon
+          {/* <Grid item xs={1}> */}
+          {/* {percentChangeInGrowthRate.toFixed(0)}% */}
+          {/* <ArrowForwardIcon
               style={{
                 color: percentChangeInGrowthRate > 0 ? "#c21807" : "green",
-                transform: `rotate(${changeInGrowthRateAngle.toFixed(0)}deg)`
+                transform: `rotate(${changeInGrowthRateAngle.toFixed(0)}deg)`,
               }}
-            />
-          </Grid>
+            /> */}
+          {/* </Grid> */}
           <Grid item xs={2}>
             <Sparklines data={positives} style={{ height: "2em" }}>
               <SparklinesBars style={{ fill: "#c21807" }} />
             </Sparklines>
           </Grid>
-          <Grid item xs={1} style={{ textAlign: "right" }}>
-            <Typography>{positives[positives.length - 1]}</Typography>
+          <Grid item xs={2} style={{ textAlign: "right" }}>
+            <Typography>
+              {positives[positives.length - 1].toLocaleString()}
+            </Typography>
             <br />
             <Typography
               style={{
                 color: "#aaa",
                 fontSize: "x-small",
-                marginTop: "-2em"
+                marginTop: "-2em",
               }}
             >
-              POSITIVES
+              NEW POSITIVES
             </Typography>
           </Grid>
           <Grid item xs={1}></Grid>
-          {hospitalizations[hospitalizations.length - 1] ? (
+          {deaths[deaths.length - 1] ? (
             <>
               <Grid item xs={2}>
-                <Sparklines data={hospitalizations} style={{ height: "2em" }}>
+                <Sparklines data={deaths} style={{ height: "2em" }}>
                   <SparklinesBars style={{ fill: "#c21807" }} />
                 </Sparklines>
               </Grid>
               <Grid item xs={2} style={{ textAlign: "right" }}>
                 <Typography>
-                  {hospitalizations[hospitalizations.length - 1]}
+                  {deaths[deaths.length - 1].toLocaleString()}
                 </Typography>
                 <br />
                 <Typography
                   style={{
                     color: "#aaa",
                     fontSize: "x-small",
-                    marginTop: "-2em"
+                    marginTop: "-2em",
                   }}
                 >
-                  HOSPITALIZATIONS
+                  NEW DEATHS
                 </Typography>
               </Grid>
             </>
@@ -458,7 +273,7 @@ function StatePanel({ stateCode, data }) {
                   style={{
                     color: "#ddd",
                     fontSize: "x-small",
-                    marginTop: "1.25em"
+                    marginTop: "1.25em",
                   }}
                 >
                   NOT AVAILABLE
@@ -467,7 +282,7 @@ function StatePanel({ stateCode, data }) {
             </>
           )}
           {/* <Grid item xs={2}>
-            <Sparklines data={data.map(obs => obs.death).reverse()}  style={{ height: "2em" }}>
+            <Sparklines data={data.map(obs => obs.death)}  style={{ height: "2em" }}>
               <SparklinesBars style={{ fill: "#41c3f9" }} />
             </Sparklines>
           </Grid>
@@ -489,7 +304,7 @@ function StatePanel({ stateCode, data }) {
           {stateNames[stateCode]}
         </Typography>
         <Typography style={{ width: "5em", marginRight: "1em" }} gutterBottom>
-          <Sparklines data={data.map(obs => obs.positive).reverse()}>
+          <Sparklines data={data.map(obs => obs.positive)}>
             <SparklinesBars style={{ fill: "#41c3f9" }} />
           </Sparklines>
         </Typography>
@@ -506,14 +321,14 @@ function StatePanel({ stateCode, data }) {
 }
 
 function DetailView({ data }) {
-  const dates = data.map(obs => parseDate(obs.date)).reverse()
+  const dates = data.map((obs) => parseDate(obs.date))
   return (
     <Grid container justify="center" alignItems="center" spacing={2}>
       {/* <Grid item xs={3}></Grid> */}
       <Grid item xs={12}>
         <Analysis
           title="Positives"
-          series={data.map(obs => obs.positive).reverse()}
+          series={data.map((obs) => obs.positiveIncrease)}
           dates={dates}
           width={870}
         />
@@ -522,14 +337,14 @@ function DetailView({ data }) {
       <Grid item xs={6}>
         <Analysis
           title="Hospitalizations"
-          series={data.map(obs => obs.hospitalized).reverse()}
+          series={data.map((obs) => obs.hospitalizedIncrease || 0)}
           dates={dates}
         />
       </Grid>
       <Grid item xs={6}>
         <Analysis
           title="Deaths"
-          series={data.map(obs => obs.death).reverse()}
+          series={data.map((obs) => obs.deathIncrease)}
           dates={dates}
         />
       </Grid>
@@ -540,12 +355,12 @@ function DetailView({ data }) {
 function Statistic({ value, label }) {
   return (
     <>
-      {value}
+      {value.toLocaleString()}
       <br />
       <Typography
         style={{
           color: "#aaa",
-          fontSize: "x-small"
+          fontSize: "x-small",
         }}
       >
         {label}
@@ -565,7 +380,7 @@ function Analysis({ title, series, dates, width = 400 }) {
             align="center"
             style={{ textTransform: "uppercase" }}
           >
-            {title}
+            New {title}
           </Typography>
         </Grid>
         <Grid item xs={12}>
@@ -574,7 +389,7 @@ function Analysis({ title, series, dates, width = 400 }) {
               width: `${width}px`,
               height: "200px",
               marginLeft: "auto",
-              marginRight: "auto"
+              marginRight: "auto",
             }}
           >
             <ResponsiveContainer width="100%">
@@ -583,7 +398,8 @@ function Analysis({ title, series, dates, width = 400 }) {
                 <XAxis
                   type="number"
                   dataKey="timeIndex"
-                  // name={`days since ${analysis.baseDate.toDateString()}`}
+                  // formatter={(value, name, props) => [value.toLocaleString(), title]}
+                  // label={`days since ${shortDateString(analysis.chartData[0].date)}`}
                   domain={["dataMin", "dataMax"]}
                   unit=""
                 />
@@ -593,20 +409,26 @@ function Analysis({ title, series, dates, width = 400 }) {
                 // name={`number ${variable}s`}
                 unit=""
               /> */}
-                <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                <Line
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  formatter={(value, name, props) => [
+                    value.toLocaleString(),
+                    title,
+                  ]}
+                />
+                {/* <Line
                   name={
                     <span>
                       ~2<sup>t/{analysis.doublingTime.toFixed(2)}</sup>
                     </span>
                   }
-                  dataKey="fit"
+                  dataKey="changeFit"
                   stroke="#555"
                   strokeWidth={3}
                   dot={false}
-                />
-                <Line dataKey="value" stroke="#c21807" dot={false} />
-                <Scatter name={title} dataKey="value" fill="#c21807" />
+                /> */}
+                <Bar dataKey="value" fill="#c21807" dot={false} />
+                {/* <Scatter name={title} dataKey="value" fill="#c21807" /> */}
                 {/* <Legend verticalAlign="top" height={36} /> */}
               </ComposedChart>
             </ResponsiveContainer>
@@ -624,16 +446,16 @@ function Analysis({ title, series, dates, width = 400 }) {
           />
         </Grid>
         <Grid item xs={2} style={{ textAlign: "center" }}>
-          <Statistic
+          {/* <Statistic
             value={(100 * analysis.rSquared).toFixed(0) + "%"}
             label="EXPONENTIAL"
-          />
+          /> */}
         </Grid>
         <Grid item xs={3} style={{ textAlign: "right" }}>
-          <Statistic
+          {/* <Statistic
             value={analysis.doublingTime.toFixed(2) + " days"}
             label="DOUBLING TIME"
-          />
+          /> */}
         </Grid>
         <Grid item xs={3} style={{ textAlign: "right" }}>
           <Statistic value={series[series.length - 1]} label="TOTAL" />
@@ -659,14 +481,14 @@ function Analysis({ title, series, dates, width = 400 }) {
               width: `${width}px`,
               height: "200px",
               marginLeft: "auto",
-              marginRight: "auto"
+              marginRight: "auto",
             }}
           >
             <Typography
               style={{
                 color: "#ddd",
                 textAlign: "center",
-                marginTop: "3.70em"
+                marginTop: "3.70em",
               }}
             >
               NOT AVAILABLE
