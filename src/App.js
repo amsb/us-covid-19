@@ -49,9 +49,9 @@ function analyzeSeries(series, dates) {
   }))
   // .filter(
   //   (obs, index) =>
-  //     obs.value &&
-  //     obs.value > 0 &&
-  //     (index === 0 || obs.value !== series[index - 1])
+  //     // obs.value &&
+  //     // obs.value > 0 &&
+  //     // (index === 0 || obs.value !== series[index - 1])
   // )
   if (data.length >= 5) {
     // const regression = regressionExp()
@@ -126,6 +126,9 @@ export default function App() {
             obs.deathIncrease = obs.death - array[index - 1].death
           }
         })
+        data[regionCode] = data[regionCode].filter(
+          (obs, index) => obs.positiveIncrease && obs.positiveIncrease > 0
+        )
       })
 
       setData(data)
@@ -143,7 +146,8 @@ export default function App() {
           align="center"
           style={{ marginBottom: "2em", color: "#555" }}
         >
-          as of {parseDate(data["US"][data["US"].length-1].date).toDateString()}
+          as of{" "}
+          {parseDate(data["US"][data["US"].length - 1].date).toDateString()}
         </Typography>
         <Container maxWidth="md" style={{ marginBottom: "4em" }}>
           <Paper elevation={0}>
@@ -211,6 +215,11 @@ function StatePanel({ stateCode, data }) {
           <Grid item xs={2}>
             <Typography style={{ fontWeight: "500" }}>
               {stateNames[stateCode]}
+            </Typography>
+            <Typography
+              style={{ fontWeight: "100", fontSize: "smaller", color: "#777" }}
+            >
+              as of {shortDateString(parseDate(data[data.length - 1].date))}
             </Typography>
           </Grid>
           {/* <Grid item xs={1}> */}
@@ -380,7 +389,7 @@ function Analysis({ title, series, dates, width = 400 }) {
             align="center"
             style={{ textTransform: "uppercase" }}
           >
-            New {title}
+            Daily {title}
           </Typography>
         </Grid>
         <Grid item xs={12}>
@@ -458,7 +467,12 @@ function Analysis({ title, series, dates, width = 400 }) {
           /> */}
         </Grid>
         <Grid item xs={3} style={{ textAlign: "right" }}>
-          <Statistic value={series[series.length - 1]} label="TOTAL" />
+          <Statistic
+            value={series[series.length - 1]}
+            label={`REPORTED ON ${shortDateString(
+              analysis.chartData[analysis.chartData.length - 1].date
+            )}`}
+          />
         </Grid>
         {width <= 400 ? <Grid item xs={1}></Grid> : null}
       </Grid>
