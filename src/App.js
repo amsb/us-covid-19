@@ -124,6 +124,11 @@ export default function App() {
               obs.hospitalized - array[index - 1].hospitalized
             obs.death = Math.max(obs.death, array[index - 1].death || 0)
             obs.deathIncrease = obs.death - array[index - 1].death
+            obs.totalTestResults = Math.max(
+              obs.totalTestResults,
+              array[index - 1].totalTestResults || 0
+            )
+            obs.totalTestResultsIncrease = obs.totalTestResults - array[index - 1].totalTestResults
           }
         })
         data[regionCode] = data[regionCode].filter(
@@ -334,15 +339,22 @@ function DetailView({ data }) {
   return (
     <Grid container justify="center" alignItems="center" spacing={2}>
       {/* <Grid item xs={3}></Grid> */}
-      <Grid item xs={12}>
+      <Grid item xs={6}>
         <Analysis
           title="Positives"
           series={data.map((obs) => obs.positiveIncrease)}
           dates={dates}
-          width={870}
+          // width={870}
         />
       </Grid>
-      {/* <Grid item xs={3}></Grid> */}
+      <Grid item xs={6}>
+        <Analysis
+          title="Test Results"
+          series={data.map((obs) => obs.totalTestResultsIncrease)}
+          dates={dates}
+          // width={870}
+        />
+      </Grid>
       <Grid item xs={6}>
         <Analysis
           title="Hospitalizations"
